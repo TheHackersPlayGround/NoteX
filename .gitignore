@@ -31,7 +31,9 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+api/.env.php
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +41,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# AI assistant dirs
+.claude/
+.gemini/
