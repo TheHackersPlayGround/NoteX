@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { fetchNotes, updateNote, deleteNote, fetchCategories, createCategory, deleteCategory } from '../api';
 import { useTheme } from '../ThemeContext';
 import { radius } from '../theme';
+import WritingLoader from '../components/WritingLoader';
 
 const CAT_COLORS = ['#6C63FF','#EF4444','#22C55E','#F59E0B','#3B82F6','#EC4899','#8B5CF6','#14B8A6'];
 
@@ -212,11 +213,7 @@ export default function NotesPageScreen({ navigation }) {
   const leftCol  = filtered.filter((_, i) => i % 2 === 0);
   const rightCol = filtered.filter((_, i) => i % 2 !== 0);
 
-  if (loading) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-      <ActivityIndicator size="large" color={colors.accent} />
-    </View>
-  );
+  if (loading) return <WritingLoader color={colors.accent} bg={colors.bg} label="Loading notes" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -268,7 +265,16 @@ export default function NotesPageScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={{ padding: 12, paddingBottom: 120, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            // Hide the native spinner by pushing it out of view
+            progressViewOffset={-60}
+            tintColor="transparent"
+            colors={['transparent']}
+          />
+        }
       >
         {filtered.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 }}>
@@ -301,6 +307,18 @@ export default function NotesPageScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      {/* Custom pull-to-refresh writing animation overlay */}
+      {refreshing && (
+        <View style={{
+          position: 'absolute', top: 56, left: 0, right: 0, height: 90,
+          alignItems: 'center', justifyContent: 'center',
+          backgroundColor: colors.bg,
+          borderBottomWidth: 1, borderBottomColor: colors.border,
+        }}>
+          <WritingLoader color={colors.accent} bg="transparent" label="Syncing" />
+        </View>
+      )}
 
       {/* FAB */}
       <TouchableOpacity

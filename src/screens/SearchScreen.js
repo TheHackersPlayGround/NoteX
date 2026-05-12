@@ -45,8 +45,7 @@ export default function SearchScreen() {
         setTasks(t);
         setNotes(n);
         setCategories(c);
-        
-        // Re-run search if query exists
+        // Always re-run search (shows all items when query is empty)
         performSearch(query, t, n, c);
       })
       .catch(() => {})
@@ -55,34 +54,25 @@ export default function SearchScreen() {
 
   // ── Search logic ────────────────────────────────────────────────────────────
   const performSearch = (text, tList = tasks, nList = notes, cList = categories, f = filter) => {
-    if (!text.trim()) {
-      setResults([]);
-      return;
-    }
-    const q = text.toLowerCase();
+    const q = text.trim().toLowerCase();
 
-    const matchedCategories = cList
-      .filter(c => c.name?.toLowerCase().includes(q))
-      .map(c => ({ ...c, _type: 'category' }));
+    // When no query, show all items (optionally filtered by chip)
+    const filteredCategories = (f === 'All' || f === 'Categories')
+      ? cList.filter(c => !q || c.name?.toLowerCase().includes(q)).map(c => ({ ...c, _type: 'category' }))
+      : [];
 
-    const matchedNotes = nList
-      .filter(n => n.title?.toLowerCase().includes(q) || stripHtml(n.body).toLowerCase().includes(q))
-      .map(n => ({ ...n, _type: 'note' }));
+    const filteredNotes = (f === 'All' || f === 'Notes')
+      ? nList.filter(n => !q || n.title?.toLowerCase().includes(q) || stripHtml(n.body).toLowerCase().includes(q)).map(n => ({ ...n, _type: 'note' }))
+      : [];
 
-    const matchedTasks = tList
-      .filter(t => t.title?.toLowerCase().includes(q) || t.details?.toLowerCase().includes(q))
-      .map(t => ({ ...t, _type: 'task' }));
+    const filteredTasks = (f === 'All' || f === 'Tasks')
+      ? tList.filter(t => !q || t.title?.toLowerCase().includes(q) || t.details?.toLowerCase().includes(q)).map(t => ({ ...t, _type: 'task' }))
+      : [];
 
     const sections = [];
-    if (matchedCategories.length > 0 && (f === 'All' || f === 'Categories')) {
-      sections.push({ title: 'Categories', data: matchedCategories });
-    }
-    if (matchedNotes.length > 0 && (f === 'All' || f === 'Notes')) {
-      sections.push({ title: 'Notes',      data: matchedNotes });
-    }
-    if (matchedTasks.length > 0 && (f === 'All' || f === 'Tasks')) {
-      sections.push({ title: 'Tasks',      data: matchedTasks });
-    }
+    if (filteredCategories.length > 0) sections.push({ title: 'Categories', data: filteredCategories });
+    if (filteredNotes.length > 0)      sections.push({ title: 'Notes',      data: filteredNotes });
+    if (filteredTasks.length > 0)      sections.push({ title: 'Tasks',      data: filteredTasks });
 
     setResults(sections);
   };
@@ -262,33 +252,30 @@ export default function SearchScreen() {
 
 
       {/* Results */}
-      {query.length === 0 ? (
-        <View style={{ alignItems: 'center', marginTop: 60, gap: 10, paddingHorizontal: 32 }}>
-          <Ionicons name="search-outline" size={40} color={colors.textMuted} />
-          <Text style={{ color: colors.textSecond, fontSize: 14, textAlign: 'center' }}>
-            Start typing to search across your notes, tasks, and categories.
-          </Text>
-        </View>
-      ) : (
-        <SectionList
-          sections={results}
-          keyExtractor={(item, index) => item._type + '_' + item.id + '_' + index}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={{ alignItems: 'center', marginTop: 60, gap: 10 }}>
-              <Ionicons name="document-outline" size={40} color={colors.textMuted} />
-              <Text style={{ color: colors.textSecond, fontSize: 14 }}>No results found for "{query}".</Text>
+      <SectionList
+        sections={results}
+        keyExtractor={(item, index) => item._type + '_' + item.id + '_' + index}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          loading ? null : (
+            <View style={{ alignItems: 'center', marginTop: 60, gap: 10, paddingHorizontal: 32 }}>
+              <Ionicons name={query.length > 0 ? 'document-outline' : 'albums-outline'} size={40} color={colors.textMuted} />
+              <Text style={{ color: colors.textSecond, fontSize: 14, textAlign: 'center' }}>
+                {query.length > 0
+                  ? `No results found for "${query}".`
+                  : 'Nothing here yet. Start adding notes, tasks, or categories!'}
+              </Text>
             </View>
-          }
-          renderSectionHeader={({ section: { title } }) => (
-            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecond, marginTop: 12, marginBottom: 8, letterSpacing: 0.5 }}>
-              {title.toUpperCase()}
-            </Text>
-          )}
-          renderItem={renderItem}
-        />
-      )}
+          )
+        }
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecond, marginTop: 12, marginBottom: 8, letterSpacing: 0.5 }}>
+            {title.toUpperCase()}
+          </Text>
+        )}
+        renderItem={renderItem}
+      />
 
       {/* Task Edit Modal */}
       <Modal visible={modal} transparent animationType="slide" onRequestClose={closeTaskModal} statusBarTranslucent>

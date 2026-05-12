@@ -39,6 +39,13 @@ export const dark = {
 
 export const radius = { sm: 12, md: 16, lg: 24, full: 999 };
 
+export const fonts = {
+  regular:   'Nunito_400Regular',
+  semiBold:  'Nunito_600SemiBold',
+  bold:      'Nunito_700Bold',
+  extraBold: 'Nunito_800ExtraBold',
+};
+
 export const getShadow = (isDark) => ({
   sm: isDark
     ? { shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8,  shadowOffset: { width: 0, height: 2 }, elevation: 4 }

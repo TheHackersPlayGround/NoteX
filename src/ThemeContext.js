@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { light, dark, radius, getShadow } from './theme';
+import { light, dark, radius, fonts, getShadow } from './theme';
 
 const ThemeContext = createContext();
 
@@ -24,7 +24,7 @@ export function ThemeProvider({ children }) {
   const shadow = getShadow(isDark);
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme, colors, radius, shadow }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme, colors, radius, shadow, fonts }}>
       {children}
     </ThemeContext.Provider>
   );

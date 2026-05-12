@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   Pressable, Modal, TextInput, KeyboardAvoidingView,
-  Platform, Alert, ActivityIndicator, LayoutAnimation,
+  Platform, Alert, ActivityIndicator, LayoutAnimation, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -10,6 +10,8 @@ import { fetchTasks, createTask, updateTask, deleteTask } from '../api';
 import { scheduleTaskNotification, cancelTaskNotification } from '../notifications';
 import { useTheme } from '../ThemeContext';
 import { radius } from '../theme';
+import useTextToSpeech from '../hooks/useTextToSpeech';
+import WritingLoader from '../components/WritingLoader';
 
 // Note: setLayoutAnimationEnabledExperimental is a no-op in the New Architecture
 
@@ -58,7 +60,7 @@ function Checkbox({ checked, onPress, colors }) {
 }
 
 // ── Active task row ───────────────────────────────────────────────────────────
-function TaskRow({ task, onToggleComplete, onTogglePin, onDelete, onPress, colors, shadow }) {
+function TaskRow({ task, onToggleComplete, onTogglePin, onDelete, onSpeak, onPress, colors, shadow, isSpeakingId }) {
   const overdue  = isOverdue(task.dueDate);
   const dueLabel = formatDue(task.dueDate);
 
@@ -95,6 +97,15 @@ function TaskRow({ task, onToggleComplete, onTogglePin, onDelete, onPress, color
 
       <TouchableOpacity onPress={() => onTogglePin(task)} style={{ padding: 6, marginRight: 4 }} activeOpacity={0.7}>
         <Ionicons name={task.isPinned ? "pin" : "pin-outline"} size={18} color={task.isPinned ? colors.accent : colors.textMuted} />
+      </TouchableOpacity>
+
+      {/* TTS button */}
+      <TouchableOpacity onPress={() => onSpeak(task)} style={{ padding: 6, marginRight: 4 }} activeOpacity={0.7}>
+        <Ionicons
+          name={isSpeakingId === task.id ? 'stop-circle-outline' : 'volume-high-outline'}
+          size={18}
+          color={isSpeakingId === task.id ? colors.accent : colors.textMuted}
+        />
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => onDelete(task.id)} style={{ padding: 6 }} activeOpacity={0.7}>
@@ -157,6 +168,32 @@ export default function NotesScreen() {
 
   // Completed section
   const [completedOpen, setCompletedOpen] = useState(false);
+
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try   { setTasks(await fetchTasks()); }
+    catch { Alert.alert('Error', 'Could not sync tasks.'); }
+    finally { setRefreshing(false); }
+  };
+
+  // TTS
+  const { speak, isSpeaking } = useTextToSpeech();
+  const [speakingTaskId, setSpeakingTaskId] = useState(null);
+  const speakTask = (task) => {
+    if (speakingTaskId === task.id) {
+      setSpeakingTaskId(null);
+      speak(''); // triggers stop via toggle in hook
+      return;
+    }
+    setSpeakingTaskId(task.id);
+    const text = `${task.title || 'Untitled'}. ${task.details || ''}`;
+    speak(text);
+    // auto-clear the id when speech ends (hook sets isSpeaking=false)
+  };
+
+  useEffect(() => { if (!isSpeaking) setSpeakingTaskId(null); }, [isSpeaking]);
 
   // Date/time picker
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -298,11 +335,7 @@ export default function NotesScreen() {
   const active    = tasks.filter(t => !t.isCompleted);
   const completed = tasks.filter(t =>  t.isCompleted);
 
-  if (loading) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-      <ActivityIndicator size="large" color={colors.accent} />
-    </View>
-  );
+  if (loading) return <WritingLoader color={colors.accent} bg={colors.bg} label="Loading tasks" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -315,13 +348,24 @@ export default function NotesScreen() {
             onToggleComplete={toggleComplete}
             onTogglePin={togglePin}
             onDelete={remove}
+            onSpeak={speakTask}
             onPress={() => openEdit(item)}
             colors={colors}
             shadow={shadow}
+            isSpeakingId={speakingTaskId}
           />
         )}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            progressViewOffset={-60}
+            tintColor="transparent"
+            colors={['transparent']}
+          />
+        }
         ListEmptyComponent={
           completed.length === 0 ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32, marginTop: 80 }}>
@@ -383,6 +427,18 @@ export default function NotesScreen() {
           ) : null
         }
       />
+
+      {/* Pull-to-refresh writing animation overlay */}
+      {refreshing && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 90,
+          alignItems: 'center', justifyContent: 'center',
+          backgroundColor: colors.bg,
+          borderBottomWidth: 1, borderBottomColor: colors.border,
+        }}>
+          <WritingLoader color={colors.accent} bg="transparent" label="Syncing tasks" />
+        </View>
+      )}
 
       {/* FAB */}
       <TouchableOpacity

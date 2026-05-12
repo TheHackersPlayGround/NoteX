@@ -1,5 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import { View, StyleSheet } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,6 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { getSession } from './src/api';
 import { ThemeProvider, useTheme } from './src/ThemeContext';
 import { requestNotificationPermission } from './src/notifications';
+import OfflineBanner from './src/components/OfflineBanner';
+import NetworkBadge  from './src/components/NetworkBadge';
+import { processQueue } from './src/syncManager';
+import { getPendingCount as getQueueCount } from './src/offlineQueue';
+import useNetworkStatus from './src/hooks/useNetworkStatus';
 
 import SplashScreenComponent from './src/screens/SplashScreen';
 import SignUpScreen    from './src/screens/SignUpScreen';
@@ -45,7 +52,8 @@ function MainTabs() {
           elevation: 0, shadowOpacity: 0,
           borderBottomWidth: 1, borderBottomColor: colors.border,
         },
-        headerTitleStyle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
+        headerTitleStyle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Nunito_700Bold' },
+        headerRight: () => <NetworkBadge />,
         tabBarIcon: ({ focused, color }) => {
           const [active, inactive] = TAB_ICONS[route.name];
           return <Ionicons name={focused ? active : inactive} size={22} color={color} />;
@@ -57,7 +65,7 @@ function MainTabs() {
           borderTopColor: colors.border,
           borderTopWidth: 1,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', fontFamily: 'Nunito_600SemiBold' },
       })}
     >
       <Tab.Screen name="Notes"     component={NotesScreen}     options={{ title: 'My Tasks',  tabBarLabel: 'Tasks'  }} />
@@ -98,8 +106,46 @@ function AppNavigator({ initialRoute }) {
 }
 
 function Root() {
+  const { isDark, colors } = useTheme();
+  const { offline } = useNetworkStatus();
+  const prevOffline  = useRef(null);
   const [appIsReady,   setAppIsReady]   = useState(false);
   const [initialRoute, setInitialRoute] = useState('Splash');
+
+  // ── Auto-sync when back online ─────────────────────────────────────────────
+  useEffect(() => {
+    if (prevOffline.current === null) { prevOffline.current = offline; return; }
+    if (prevOffline.current === offline) return;
+    prevOffline.current = offline;
+
+    if (!offline) {
+      getQueueCount().then(async count => {
+        if (count === 0) return;
+        const { synced, failed } = await processQueue();
+        const Notifs = (await import('expo-notifications')).default;
+        Notifs.scheduleNotificationAsync({
+          content: {
+            title: failed === 0
+              ? `✅ Synced ${synced} change${synced !== 1 ? 's' : ''}`
+              : `⚠️ Sync partial — ${synced} ok, ${failed} failed`,
+            body: failed === 0
+              ? 'All your offline changes have been saved to the server.'
+              : `${failed} item(s) could not sync and remain queued.`,
+            sound: true,
+          },
+          trigger: null,
+        }).catch(() => {});
+      });
+    }
+  }, [offline]);
+
+
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+  });
 
   useEffect(() => {
     async function prepare() {
@@ -117,16 +163,24 @@ function Root() {
   }, []);
 
   const onLayoutRootView = useCallback(async () => {
-    if (appIsReady) await SplashScreen.hideAsync();
-  }, [appIsReady]);
+    if (appIsReady && fontsLoaded) await SplashScreen.hideAsync();
+  }, [appIsReady, fontsLoaded]);
 
-  if (!appIsReady) return null;
+  if (!appIsReady || !fontsLoaded) return null;
 
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
+      {/* Global status bar — dark icons on light bg, light icons on dark bg */}
+      <StatusBar
+        style={isDark ? 'light' : 'dark'}
+        backgroundColor={colors.bg}
+        translucent={false}
+      />
       <PaperProvider>
         <AppNavigator initialRoute={initialRoute} />
       </PaperProvider>
+      {/* Toast banner — slides in on connectivity change, auto-dismisses after 10 s */}
+      <OfflineBanner />
     </View>
   );
 }

@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { fetchTrash, restoreItem, forceDeleteItem } from '../api';
 import { useTheme } from '../ThemeContext';
 import { radius } from '../theme';
+import WritingLoader from '../components/WritingLoader';
 
 function stripHtml(html) {
   if (!html) return '';
@@ -110,7 +111,7 @@ export default function TrashScreen() {
     );
   };
 
-  if (loading) return <View style={{ flex:1, backgroundColor: colors.bg, justifyContent:'center' }}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (loading) return <WritingLoader color={colors.accent} bg={colors.bg} label="Loading trash" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

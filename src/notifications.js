@@ -38,7 +38,7 @@ export async function scheduleTaskNotification(taskId, title, dueDate) {
 
     const id = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '⏰ Task Due',
+        title: 'Task Due',
         body:  title,
         data:  { taskId },
         sound: true,
@@ -64,5 +64,22 @@ export async function cancelTaskNotification(notificationId) {
 export async function cancelAllNotifications() {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch {}
+}
+
+// Fire an immediate local notification for network status changes
+export async function sendNetworkNotification(isOnline) {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: isOnline ? 'Back Online — Sync Now' : 'No Internet Connection',
+        body:  isOnline
+          ? 'Connection restored! Pull to refresh your Tasks & Notes to sync the latest data.'
+          : 'You are offline. Tasks, Notes & Categories are still available from local cache.',
+        sound: true,
+        data:  { type: 'network', isOnline },
+      },
+      trigger: null, // immediate
+    });
   } catch {}
 }

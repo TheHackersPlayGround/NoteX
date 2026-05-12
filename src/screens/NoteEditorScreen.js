@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  Platform, ActivityIndicator, StatusBar, Alert, KeyboardAvoidingView,
+  Platform, ActivityIndicator, Alert, KeyboardAvoidingView,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ import * as Sharing from 'expo-sharing';
 import { createNote, updateNote } from '../api';
 import { useTheme } from '../ThemeContext';
 import { radius } from '../theme';
+import useTextToSpeech from '../hooks/useTextToSpeech';
 
 // ── Palettes ──────────────────────────────────────────────────────────────────
 const BG_LIGHT = ['#FFFFFF','#FFF9C4','#DCEDC8','#BBDEFB','#F8BBD0','#E1BEE7','#FFCCBC'];
@@ -331,6 +333,13 @@ export default function NoteEditorScreen({ route, navigation }) {
 
   const cardBg = noteBg;
 
+  // Text-to-speech
+  const { speak, stop, isSpeaking } = useTextToSpeech();
+  const readAloud = () => {
+    const text = `${title || 'Untitled'}. ${(htmlRef.current || '').replace(/<[^>]*>/g, ' ')}`;
+    speak(text);
+  };
+
   // ── WebView helpers ─────────────────────────────────────────────────────────
   const injectCmd = useCallback((cmd, val = null) => {
     const payload = JSON.stringify({ t: 'cmd', cmd, val });
@@ -516,7 +525,7 @@ export default function NoteEditorScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cardBg }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={cardBg} />
+      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={cardBg} translucent={false} />
       
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
@@ -529,6 +538,23 @@ export default function NoteEditorScreen({ route, navigation }) {
         <View style={{ flex: 1 }} />
 
         {saving && <ActivityIndicator size="small" color={colors.textSecond} style={{ marginRight: 8 }} />}
+
+        {/* Read Aloud button */}
+        <TouchableOpacity
+          onPress={readAloud}
+          style={{
+            padding: 8, marginLeft: 4,
+            backgroundColor: isSpeaking ? colors.accentLight : 'transparent',
+            borderRadius: radius.sm,
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
+            size={22}
+            color={isSpeaking ? colors.accent : colors.textPrimary}
+          />
+        </TouchableOpacity>
 
         {/* Options Menu Button */}
         <TouchableOpacity onPress={() => togglePanel('options')} style={{ padding: 8, marginRight: 4 }}>
