@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { getSession, logout, changePassword } from '../api';
 import { cancelAllNotifications } from '../notifications';
 import { useTheme } from '../ThemeContext';
@@ -167,7 +168,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>App Version</Text>
             <Text style={{ fontSize: 12, color: colors.textSecond, marginTop: 1 }}>You're on the latest version</Text>
           </View>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.accent }}>1.0.0</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.accent }}>{Constants.expoConfig?.version || '1.0.0'}</Text>
         </View>
 
         {/* About Developer */}
